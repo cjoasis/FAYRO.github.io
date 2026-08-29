@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FAYRO - Torneo de Futbol</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: '#000000', card: '#0a0f0a', accent: '#e8b830',
+            pitch: '#1db954', cap1: '#1db954', cap2: '#e85d30',
+            surf: '#141a14', brd: '#1e2a1e', muted: '#5a7a5a'
+          },
+          fontFamily: {
+            display: ['Oswald', 'sans-serif'],
+            body: ['"Source Sans 3"', 'sans-serif']
+          }
+        }
+      }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;600;700&family=Source+Sans+3:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" type="image/png" href="favicon.png">
+</head>
+<body class="min-h-screen">
+  <div id="parts" aria-hidden="true"></div>
+
+  <div class="barra-top fixed top-0 left-0 right-0 z-50"></div>
+
+  <div id="cargador" class="fixed inset-0 z-40 flex flex-col items-center justify-center" style="background:#000">
+    <div class="relative w-12 h-12">
+      <div class="absolute inset-0 rounded-full border-2 border-accent/15"></div>
+      <div class="absolute inset-0 rounded-full border-2 border-transparent border-t-accent animate-spin"></div>
+      <div class="absolute inset-1.5 rounded-full border-2 border-transparent border-b-pitch animate-spin" style="animation-duration:1.4s;animation-direction:reverse"></div>
+    </div>
+    <p class="mt-3 text-muted font-display text-[.6rem] tracking-[.2em] uppercase">Cargando datos</p>
+  </div>
+
+  <nav class="fixed top-[3px] left-0 right-0 z-30 border-b border-brd/40" style="background:rgba(0,0,0,.85);backdrop-filter:blur(20px)">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 h-12 flex items-center justify-between">
+      <div class="flex items-center gap-2.5">
+        <span class="font-display text-base font-bold tracking-[.18em] text-white">FAYRO</span>
+        <span class="hidden sm:inline text-muted text-[.6rem] ml-1 border border-brd rounded px-1.5 py-0.5" id="nav-ins">--</span>
+      </div>
+      <div class="flex items-center gap-1" id="nav-paginas">
+        <div class="nav-link activo" data-pag="inicio" onclick="irA('inicio')"><i class="fa-solid fa-house text-[.55rem] mr-1"></i>Inicio</div>
+        <div class="nav-link" data-pag="jugadores" onclick="irA('jugadores')"><i class="fa-solid fa-users text-[.55rem] mr-1"></i>Jugadores</div>
+        <div class="nav-link" data-pag="temporadas" onclick="irA('temporadas')"><i class="fa-solid fa-trophy text-[.55rem] mr-1"></i>Temporadas</div>
+      </div>
+      <div class="flex items-center gap-2">
+        <label class="text-muted text-[.6rem] hidden sm:block">Temp.</label>
+        <select id="sel-temp" class="text-white border border-brd rounded-lg px-2 py-1 pr-5 text-[.65rem] font-display focus:outline-none focus:border-accent/30 cursor-pointer" style="background:#141a14"></select>
+        <button id="btn-act" class="w-7 h-7 rounded-lg border border-brd flex items-center justify-center text-muted hover:text-accent hover:border-accent/25 transition-colors" style="background:#141a14" title="Actualizar"><i class="fa-solid fa-arrows-rotate text-[.55rem]"></i></button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="btm-bar justify-center" id="btm-bar">
+    <div class="btm-item" ></div>
+    <div class="btm-item " data-pag="inicio" onclick="irA('inicio')"><i class="fa-solid fa-house"></i><span>Inicio</span></div>
+    <div class="btm-item" data-pag="jugadores" onclick="irA('jugadores')"><i class="fa-solid fa-users"></i><span>Jugadores</span></div>
+    <div class="btm-item" data-pag="temporadas" onclick="irA('temporadas')"><i class="fa-solid fa-trophy"></i><span>Temporadas</span></div>
+        <div class="btm-item" ></div>
+  </div>
+
+  <main class="pt-[52px] pb-8 sm:pb-8" id="main-content" style="padding-bottom:calc(2.5rem + env(safe-area-inset-bottom))">
+
+    <!-- ═══ INICIO ═══ -->
+    <div class="pagina activa" id="pag-inicio">
+      <section class="max-w-7xl mx-auto px-4 sm:px-6 pt-5 pb-2">
+        <div class="text-center mb-4">
+          <h1 class="font-display text-2xl sm:text-4xl font-bold text-white leading-tight" id="h-tit">Temporada --</h1>
+          <p class="mt-0.5 text-[.8rem]" id="h-est"></p>
+        </div>
+        <div class="fila-h flex items-stretch justify-center gap-3 sm:gap-4">
+          <div class="tcap t1 bgrad bg-card rounded-xl p-2.5 sm:p-3.5 md:p-5 w-full max-w-[300px] sm:max-w-[260px] text-center flex-shrink-0 hero-anim">
+            <h2 class="font-display text-sm sm:text-base sm:text-lg font-bold text-white truncate" id="c1-n">--</h2>
+            <p class="text-cap1/60 text-[.45rem] sm:text-[.5rem] font-display uppercase tracking-wider">Capitan 1</p>
+            <div class="mt-1.5 sm:mt-2.5">
+              <p class="text-muted text-[.45rem] sm:text-[.5rem] uppercase tracking-widest">EWinrate ultimas 2 temp</p>
+              <p class="font-display text-lg sm:text-xl font-bold text-cap1 num" id="c1-ew">0.0%</p>
+              <div class="bwr mt-0.5 sm:mt-1"><div class="bwr-f bg-cap1" id="c1-eb" style="width:0%"></div></div>
+            </div>
+            <div class="mt-1 sm:mt-2">
+              <p class="text-muted text-[.45rem] sm:text-[.5rem] uppercase tracking-widest">Ultima Calificación</p>
+              <p class="font-display text-sm text-white num" id="c1-c">--</p>
+            </div>
+            <div class="mt-1.5 sm:mt-2.5 flex justify-center gap-2 sm:gap-2.5 text-[.6rem]">
+              <div><p class="text-cap1 font-display font-bold num" id="c1-v">0</p><p class="text-muted text-[.5rem]">V</p></div>
+              <div class="w-px bg-brd"></div>
+              <div><p class="text-accent font-display font-bold num" id="c1-e">0</p><p class="text-muted text-[.5rem]">E</p></div>
+              <div class="w-px bg-brd"></div>
+              <div><p class="text-red-400 font-display font-bold num" id="c1-d">0</p><p class="text-muted text-[.5rem]">D</p></div>
+            </div>
+          </div>
+          <div class="cvs flex-shrink-0 px-4 sm:px-8 hero-anim">
+  <!-- Se quitó el texto y se puso la imagen con tamaños responsivos -->
+            <img src="VS.gif" alt="VS" class="vs-brillo">
+           <div id="marcador-h2h"></div>
+          </div>
+          <div class="tcap t2 bgrad bg-card rounded-xl p-2.5 sm:p-3.5 md:p-5 w-full max-w-[300px] sm:max-w-[260px] text-center flex-shrink-0 hero-anim">
+            <h2 class="font-display text-sm sm:text-base sm:text-lg font-bold text-white truncate" id="c2-n">--</h2>
+            <p class="text-cap2/60 text-[.45rem] sm:text-[.5rem] font-display uppercase tracking-wider">Capitan 2</p>
+            <div class="mt-1.5 sm:mt-2.5">
+              <p class="text-muted text-[.45rem] sm:text-[.5rem] uppercase tracking-widest">EWinrate ultimas 2 temp</p>
+              <p class="font-display text-lg sm:text-xl font-bold text-cap2 num" id="c2-ew">0.0%</p>
+              <div class="bwr mt-0.5 sm:mt-1"><div class="bwr-f bg-cap2" id="c2-eb" style="width:0%"></div></div>
+            </div>
+            <div class="mt-1 sm:mt-2">
+              <p class="text-muted text-[.45rem] sm:text-[.5rem] uppercase tracking-widest">Ultima Calificación</p>
+              <p class="font-display text-sm text-white num" id="c2-c">--</p>
+            </div>
+            <div class="mt-1.5 sm:mt-2.5 flex justify-center gap-2 sm:gap-2.5 text-[.6rem]">
+              <div><p class="text-cap2 font-display font-bold num" id="c2-v">0</p><p class="text-muted text-[.5rem]">V</p></div>
+              <div class="w-px bg-brd"></div>
+              <div><p class="text-accent font-display font-bold num" id="c2-e">0</p><p class="text-muted text-[.5rem]">E</p></div>
+              <div class="w-px bg-brd"></div>
+              <div><p class="text-red-400 font-display font-bold num" id="c2-d">0</p><p class="text-muted text-[.5rem]">D</p></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="max-w-7xl mx-auto px-4 sm:px-6 py-2.5">
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="text-cap1 font-display text-xs font-bold bg-nom-trunc" id="bg-c1-nom">--</span>
+          <span class="text-muted text-[.5rem] sm:text-[.55rem] font-display uppercase tracking-wider text-center">Distribucion de goles</span>
+          <span class="text-cap2 font-display text-xs font-bold bg-nom-trunc" id="bg-c2-nom">--</span>
+        </div>
+        <div class="barra-goles">
+          <div class="lado-c1" id="bg-c1-bar" style="width:50%">0</div>
+          <div class="lado-c2" id="bg-c2-bar" style="width:50%">0</div>
+        </div>
+        <div class="flex items-center justify-between mt-1">
+          <span class="text-cap1/70 text-[.55rem] sm:text-[.6rem] num" id="bg-c1-pct">0%</span>
+          <span class="text-muted/40 text-[.5rem] sm:text-[.55rem] num" id="bg-total">0 goles totales</span>
+          <span class="text-cap2/70 text-[.55rem] sm:text-[.6rem] num" id="bg-c2-pct">0%</span>
+        </div>
+      </section>
+
+      <section class="max-w-7xl mx-auto px-4 sm:px-6 py-3 revelar">
+        <div class="flex items-center justify-between mb-2.5">
+          <h2 class="font-display text-base font-bold flex items-center gap-1.5"><i class="fa-solid fa-clipboard-list text-accent text-xs"></i>Partidos y Alineaciones</h2>
+          <span class="text-muted text-[.6rem] font-display" id="c-part">0 partidos</span>
+        </div>
+        <div>      <!-- NUEVAS PESTAÑAS -->
+      <div class="pestanas-partidos" id="pestanas-partidos">
+        <button class="pestana pestana-activa" data-tipo="oficial"><i class="fa-solid fa-shield-halved text-[.5rem] mr-1"></i>Oficiales</button>
+        <button class="pestana" data-tipo="capitania"><i class="fa-solid fa-crown text-[.5rem] mr-1"></i>Por Capitanía</button>
+        <button class="pestana" data-tipo="amistoso"><i class="fa-solid fa-handshake text-[.5rem] mr-1"></i>Amistosos</button>
+      </div>
+      <!-- FIN PESTAÑAS --></div>
+        <div class="bg-card rounded-xl border border-brd overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full tabla min-w-[100px]">
+              <thead class="bg-card sticky top-0 z-10">
+                <tr class="border-b border-brd text-muted">
+                  <th class="px-2.5 py-2 text-left w-0.6">#</th>
+                  <th class="px-2.5 py-2 text-left w-0.6">Tipo</th>
+                  <th class="px-2.5 py-2 text-center w-0.6" id="th-c1">Cap.1</th>
+                  <th class="px-2.5 py-2 text-center w-0.6">Resultado</th>
+                  <th class="px-2.5 py-2 text-center w-0.6" id="th-c2">Cap.2</th>
+                  <th class="px-2.5 py-2 text-center">MVPs</th>
+                  <th class="px-2.5 py-2 text-center w-0.6">Año</th>
+                  <th class="px-2 px-7"></th>
+                </tr>
+              </thead>
+              <tbody id="tb-part"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="max-w-7xl mx-auto px-4 sm:px-6 py-3 revelar">
+        <div class="flex items-center justify-between mb-1.5">
+          <h2 class="font-display text-base font-bold flex items-center gap-1.5"><i class="fa-solid fa-handshake text-accent text-xs"></i>Mejores Sinergias</h2>
+          <span class="text-muted text-[.6rem] font-display" id="c-sin">0 duplas</span>
+        </div>
+        <p class="text-muted text-[.55rem] mb-2.5">Duplas con mayor impacto acumulado en la temporada actual <span class="text-pitch/60">V=+1 E=+0.33 (Min. 2 pj juntos)</span></p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5" id="gr-sin"></div>
+      </section>
+      
+      <!-- ═══ DREAM TEAM DE LA TEMPORADA ═══ -->
+      <section class="max-w-7xl mx-auto px-4 sm:px-6 py-3 revelar">
+        <div class="flex items-center justify-between mb-2.5">
+          <h2 class="font-display text-base font-bold flex items-center gap-1.5">
+            <i class="fa-solid fa-star text-accent text-xs"></i>Dream Team de la Temporada
+          </h2>
+          <span class="text-muted text-[.6rem] font-display" id="c-dt">Top 5 Puntaje Fayro</span>
+        </div>
+        
+        <div class="dream-contenedor" id="gr-dream">
+          <!-- IMAGEN DE FONDO DIRECTA EN EL HTML (Infalible) -->
+          <img src="dreamteam.png" alt="" class="dream-fondo-img">          
+          <!-- Aquí se inyectarán los jugadores desde JS -->
+        </div>
+      </section>
+    </div>
+
+        
+    <!-- ═══ JUGADORES ═══ -->
+    <div class="pagina" id="pag-jugadores">
+      <section class="max-w-7xl mx-auto px-4 sm:px-6 pt-5 pb-3 revelar">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-2.5 gap-2">
+          <h2 class="font-display text-lg font-bold flex items-center gap-1.5"><i class="fa-solid fa-ranking-star text-accent text-xs"></i>Ranking de Jugadores</h2>
+          <div class="filtro-toggle">
+            <button class="filtro-btn activo" data-filtro="todos" onclick="cambiarFiltro('todos')"><i class="fa-solid fa-users text-[.5rem]"></i>Todos</button>
+            <button class="filtro-btn" data-filtro="recientes" onclick="cambiarFiltro('recientes')"><i class="fa-solid fa-clock-rotate-left text-[.5rem]"></i>Ultimas 2 Temp.</button>
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-1 mb-3 text-[.55rem] text-muted">
+          <span id="filtro-info" class="font-display tracking-wider text-accent/70"><i class="fa-solid fa-circle-info mr-0.5"></i>Todos los partidos (Historial completo)</span>
+          <span class="hidden sm:inline flex items-center gap-1"><span class="w-2 h-0.5 bg-accent rounded inline-block"></span>EWinrate</span>
+          <span class="hidden sm:inline flex items-center gap-1"><i class="fa-solid fa-bolt text-accent text-[.5rem]"></i>Punt.Fayro</span>
+          <span class="hidden sm:inline flex items-center gap-1"><i class="fa-solid fa-trophy text-accent text-[.45rem]"></i>Copas como capitan</span>
+          <span class="hidden sm:inline flex items-center gap-1"><i class="fa-solid fa-sort text-[.5rem]"></i>Ordenar columnas</span>
+        </div>
+        <div class="relative mb-3">
+          <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-muted/50 text-xs"></i>
+          <input type="text" id="busq-rank" class="busq-input" placeholder="Buscar jugador...">
+          <span id="busq-count" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted/40 text-[.6rem] font-display"></span>
+        </div>
+        <div class="flex flex-wrap items-center gap-1.5 mb-3" id="col-toggles"></div>
+        <div class="bg-card rounded-xl border border-brd overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full tabla min-w-[240px]" id="tabla-rank">
+              <thead class="bg-card sticky top-0 z-10">
+                <tr class="border-b border-brd text-muted">
+                  <th class="px-2 py-2 text-left   w-3 th-sort" data-col="nombre" onclick="ordenarRanking('nombre')">Jugador <i class="fa-solid fa-sort sort-ico"></i></th>
+                  <th class="px-2 py-2 text-center w-3 th-sort" data-col="copas" onclick="ordenarRanking('copas')">Copas <i class="fa-solid fa-sort sort-ico"></i></th>
+                  <th class="px-2 py-2 text-center w-3 th-sort" data-col="cal" onclick="ordenarRanking('cal')">Cal. <i class="fa-solid fa-sort sort-ico"></i></th>
+                  <th class="px-2 py-2 text-center w-3 th-sort" data-col="mvp" onclick="ordenarRanking('mvp')">MVP <i class="fa-solid fa-sort sort-ico"></i></th>
+                  <th class="px-2 py-2 text-center w-3 th-sort" data-col="v" onclick="ordenarRanking('v')">V <i class="fa-solid fa-sort sort-ico"></i></th>
+                  <th class="px-2 py-2 text-center w-3 th-sort" data-col="e" onclick="ordenarRanking('e')">E <i class="fa-solid fa-sort sort-ico"></i></th>
+                  <th class="px-2 py-2 text-center w-3 th-sort" data-col="d" onclick="ordenarRanking('d')">D <i class="fa-solid fa-sort sort-ico"></i></th>
+                  <th class="px-2 py-2 text-center w-3 th-sort" data-col="pj" onclick="ordenarRanking('pj')">PJ <i class="fa-solid fa-sort sort-ico"></i></th>
+                  <th class="px-2 py-2 text-center w-3 th-sort" data-col="ewr" onclick="ordenarRanking('ewr')">EWinrate <i class="fa-solid fa-sort sort-ico"></i></th>
+                  <th class="px-2 py-2 text-center w-3 th-sort activo" data-col="pf" onclick="ordenarRanking('pf')">Punt. Fayro <i class="fa-solid fa-sort-down sort-ico"></i></th>
+                </tr>
+              </thead>
+              <tbody id="tb-rank"></tbody>
+            </table>
+          </div>
+        </div>
+        <div id="rank-pag" class="flex items-center justify-center gap-1.5 mt-3"></div>
+        <p id="rank-vacio" class="hidden text-center text-muted/50 text-sm py-6"><i class="fa-solid fa-ghost mr-1"></i>Sin resultados para esa busqueda</p>
+        <div class="mt-4 flex justify-center" id="wrap-csv">
+          <button class="btn-csv" id="btn-csv" onclick="copiarCSV()"><i class="fa-solid fa-file-csv"></i><span>Copiar como CSV</span></button>
+        </div>
+      </section>
+
+      <section class="max-w-7xl mx-auto px-4 sm:px-6 py-4 revelar" id="sec-sin-hist">
+        <div class="flex items-center gap-2 mb-1.5">
+          <div class="w-px h-5 bg-brd"></div>
+          <h2 class="font-display text-base font-bold flex items-center gap-1.5"><i class="fa-solid fa-handshake-angle text-accent text-xs"></i>Sinergias Historicas</h2>
+          <span class="text-muted text-[.6rem] font-display" id="c-sin-hist">0 duplas</span>
+        </div>
+        <p class="text-muted text-[.55rem] mb-2.5 ml-3">Duplas con mayor impacto acumulado en toda la historia <span class="text-pitch/60">V=+1 E=+0.33 (Min. 2 pj juntos, solo oficiales)</span></p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5" id="gr-sin-hist"></div>
+      </section>
+
+      <section class="max-w-7xl mx-auto px-4 sm:px-6 py-4 revelar" id="sec-riv-hist">
+        <div class="flex items-center gap-2 mb-1.5">
+          <div class="w-px h-5 bg-brd"></div>
+          <h2 class="font-display text-base font-bold flex items-center gap-1.5"><i class="fa-solid fa-fire text-accent text-xs"></i>Rivalidades Historicas</h2>
+          <span class="text-muted text-[.6rem] font-display" id="c-riv-hist">0 duplas</span>
+        </div>
+        <p class="text-muted text-[.55rem] mb-2.5 ml-3">Enfrentamientos mas desbalanceados en toda la historia <span class="text-pitch/60">V=+1 E=+0.33 (Min. 15 enf., solo oficiales)</span></p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5" id="gr-riv-hist"></div>
+      </section>
+    </div>
+
+     
+    <!-- ═══ TEMPORADAS ═══ -->
+    <div class="pagina" id="pag-temporadas">
+      <section class="max-w-7xl mx-auto px-4 sm:px-6 pt-5 pb-3">
+        <h2 class="font-display text-lg font-bold mb-4 flex items-center gap-1.5"><i class="fa-solid fa-trophy text-accent text-xs"></i>Historico de Temporadas</h2>
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3" id="gr-temp"></div>
+      </section>
+      <div id="det-temp" class="max-w-7xl mx-auto px-4 sm:px-6 py-3 hidden">
+        <div class="bg-card rounded-xl border border-brd p-5">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-display text-base font-bold text-white" id="det-tit">Temporada --</h3>
+            <button onclick="document.getElementById('det-temp').classList.add('hidden')" class="text-muted hover:text-white text-xs transition-colors"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+            <div class="text-center p-3 rounded-lg border border-brd" style="background:#141a14"><p class="text-muted text-[.55rem] uppercase tracking-wider mb-1">Capitan 1</p><p class="font-display font-bold text-cap1 text-lg" id="det-c1">--</p></div>
+            <div class="text-center p-3 rounded-lg border border-brd" style="background:#141a14"><p class="text-muted text-[.55rem] uppercase tracking-wider mb-1">Ganador</p><p class="font-display font-bold text-accent text-lg" id="det-gan">--</p></div>
+            <div class="text-center p-3 rounded-lg border border-brd" style="background:#141a14"><p class="text-muted text-[.55rem] uppercase tracking-wider mb-1">Capitan 2</p><p class="font-display font-bold text-cap2 text-lg" id="det-c2">--</p></div>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full tabla min-w-[400px]">
+              <thead style="background:#141a14">
+                <tr class="border-b border-brd text-muted">
+                  <th class="px-3 py-2 text-left w-9">#</th>
+                  <th class="px-3 py-2 text-center">Cap.1</th>
+                  <th class="px-3 py-2 text-center w-24">Resultado</th>
+                  <th class="px-3 py-2 text-center">Cap.2</th>
+                  <th class="px-3 py-2 text-center">Tipo</th>
+                  <th class="px-3 py-2 text-center">Año</th>
+                </tr>
+              </thead>
+              <tbody id="det-tb"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <footer class="border-t border-brd/30 mt-4 pt-4 pb-5">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6">
+    <div class="metricas-leyenda">
+      <p class="metricas-titulo">Cómo se calculan las métricas</p>
+      <div class="formulas-grid">
+        <div class="formula-card">
+          <span class="formula-nombre">EWinrate</span>
+          <span class="formula-ecuacion">EWinrate= Victorias +1, Empate +0.33, Dividido entre partidos jugados</span>
+        </div>
+        <div class="formula-card">
+          <span class="formula-nombre">Puntaje FAYRO</span>
+          <span class="formula-ecuacion">Puntaje FAYRO = Victorias +1, Empate +0.33, MVP +0.33, Partido jugado +0.01 </span>
+        </div>
+      </div>
+    </div>
+   
+    <!-- ESTADÍSTICAS GENERALES (Lo que ya tenías) -->
+    <div class="flex flex-col sm:flex-row items-center justify-between gap-2 mb-2">
+      
+      <div class="flex items-center gap-2.5 text-muted text-[.55rem]">
+        <span><i class="fa-solid fa-users mr-1 text-[.45rem]"></i><span id="pie-jug">0</span> jugadores</span>
+        <span class="text-brd">|</span>
+        <span><i class="fa-solid fa-futbol mr-1 text-[.45rem]"></i><span id="pie-parts">0</span> partidos</span>
+        <span class="text-brd">|</span>
+        <span><i class="fa-solid fa-trophy mr-1 text-[.45rem]"></i><span id="pie-temps">0</span> temporadas</span>
+      </div>
+   <div class="flex items-center gap-2">
+        <span class="text-muted text-[.55rem]">por: Christopher Josue Fallas Rojas</span>
+      </div>
+    </div>
+    <p class="text-center text-muted/40 text-[.5rem] mt-3" id="pie-h">--</p>
+  </div>
+</footer>
+
+  <!-- Toast -->
+  <div id="toast" class="fixed bottom-16 sm:bottom-4 right-4 z-50 border border-brd rounded-lg px-3 py-2 text-xs text-white shadow-2xl transform translate-y-14 opacity-0 transition-all duration-300 pointer-events-none" style="background:#141a14">
+    <span id="toast-m"></span>
+  </div>
+
+  <!-- Modal jugador -->
+  <div id="modal-jug" class="modal-overlay" role="dialog" aria-modal="true">
+    <div class="modal-backdrop" onclick="cerrarModal()"></div>
+    <div class="modal-content p-5" tabindex="-1" id="modal-box">
+      <button onclick="cerrarModal()" class="absolute top-3 right-3 w-7 h-7 rounded-lg border border-brd flex items-center justify-center text-muted hover:text-white hover:border-accent/25 transition-colors" style="background:#141a14" aria-label="Cerrar"><i class="fa-solid fa-xmark text-xs"></i></button>
+            <div class="flex items-center gap-3 mb-4">
+        <div class="flex-shrink-0" id="modal-foto"></div>
+        <div><h3 class="font-display text-lg font-bold text-white leading-tight" id="modal-nom">--</h3><p class="text-muted text-[.6rem] font-display" id="modal-sub">--</p></div>
+      </div>
+
+      <div class="grid grid-cols-4 gap-2 mb-4">
+        <div class="text-center p-2 rounded-lg border border-brd" style="background:#141a14"><p class="text-cap1 font-display font-bold text-base num" id="modal-v">0</p><p class="text-muted text-[.4rem] uppercase tracking-wide">Victorias</p></div>
+        <div class="text-center p-2 rounded-lg border border-brd" style="background:#141a14"><p class="text-accent font-display font-bold text-base num" id="modal-e">0</p><p class="text-muted text-[.4rem] uppercase tracking-wide">Empates</p></div>
+        <div class="text-center p-2 rounded-lg border border-brd" style="background:#141a14"><p class="text-red-400 font-display font-bold text-base num" id="modal-d">0</p><p class="text-muted text-[.4rem] uppercase tracking-wide">Derrotas</p></div>
+        <div class="text-center p-2 rounded-lg border border-brd" style="background:#141a14"><p class="text-yellow-400 font-display font-bold text-base num" id="modal-mvp">0</p><p class="text-muted text-[.5rem]">MVP</p></div>
+      </div>
+      <div class="grid grid-cols-3 gap-2 mb-4">
+        <div class="text-center p-2.5 rounded-lg border border-brd" style="background:#141a14">
+          <p class="text-muted text-[.5rem] uppercase tracking-wider mb-0.5">EWinrate</p>
+          <p class="font-display font-bold text-accent text-base num" id="modal-ewr">0%</p>
+          <div class="bwr mt-1"><div class="bwr-f bg-accent" id="modal-ewr-bar" style="width:0%"></div></div>
+        </div>
+        <div class="text-center p-2.5 rounded-lg border border-brd" style="background:#141a14">
+          <p class="text-muted text-[.5rem] uppercase tracking-wider mb-0.5">Copas</p>
+          <div class="modal-copa-big mt-1">
+            <i class="fa-solid fa-trophy copa-ico copa-gan" id="modal-copa-ico"></i>
+            <span class="copa-nums" id="modal-copa-nums"><span class="copa-jug num">0</span><span class="copa-zero">/</span><span class="copa-gan num">0</span></span>
+          </div>
+        </div>
+        <div class="text-center p-2.5 rounded-lg border border-brd" style="background:#141a14">
+          <p class="text-muted text-[.5rem] uppercase tracking-wider mb-0.5">Puntaje Fayro</p>
+          <p class="font-display font-bold text-lg num" id="modal-pf">--</p>
+        </div>
+      </div>
+      <div class="mb-4">
+        <p class="text-muted text-[.55rem] font-display uppercase tracking-wider mb-2">Linea Temporal</p>
+        <div class="bg-surf rounded-lg border border-brd p-2.5 relative" style="height:180px">
+          <canvas id="g-modal"></canvas>
+          <div id="modal-tl-empty" class="absolute inset-0 flex items-center justify-center pointer-events-none"><p class="text-muted/30 text-xs">Sin partidos registrados</p></div>
+        </div>
+      </div>
+       <div class="mb-4" id="modal-cal-wrap" style="display:none">
+        <p class="text-muted text-[.55rem] font-display uppercase tracking-wider mb-2">Historial de Calificacion</p>
+        <div class="bg-surf rounded-lg border border-brd p-2.5 relative" style="height:160px">
+          <canvas id="g-modal-cal"></canvas>
+          <div id="modal-cal-empty" class="absolute inset-0 flex items-center justify-center pointer-events-none"><p class="text-muted/30 text-xs">Sin historial</p></div>
+        </div>
+      </div>
+      <div id="modal-comp-wrap">
+        <p class="text-muted text-[.55rem] font-display uppercase tracking-wider mb-2"><i class="fa-solid fa-people-arrows text-accent/60 mr-1 text-[.5rem]"></i>Dream Team</p>
+        <div class="lista-nombres" id="modal-comp-list"></div>
+      </div>
+      <div id="modal-riv-wrap" class="mt-4">
+        <p class="text-muted text-[.55rem] font-display uppercase tracking-wider mb-2"><i class="fa-solid fa-fire text-accent/60 mr-1 text-[.5rem]"></i>Pierde contra</p>
+        <div class="lista-nombres" id="modal-riv-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
