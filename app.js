@@ -39,7 +39,7 @@ var TAM_FOTOS = {
   dream_team:7
 };
 
-var tipoPartidoFiltro = 'oficial'; // <--- AÑADE ESTO
+var tipoPartidoFiltro = 'oficial'; 
 var pagActual = 'inicio', rankingDatos = [], ultimosOrdenados = [];
 
 /* ── Utilidades ── */
@@ -294,9 +294,9 @@ function cargarDatos() {
     sb.from('vista_rivalidades_historicas').select('*'),
     sb.from('vista_ranking_jugadores').select('*'), 
     sb.from('vista_ranking_por_temporada').select('*'),
-    sb.from('vista_dream_team_temporada').select('*') 
-  
-
+    sb.from('vista_dream_team_temporada').select('*'),
+    sb.from('vista_pierde_contra').select('*'),
+    sb.from('vista_ewinrate_ultimas_2_temp').select('*') // <-- NUEVA VISTA AÑADIDA AQUÍ
   ]).then(function (res) {
     if (res[0].error) throw res[0].error;
     if (res[1].error) throw res[1].error;
@@ -309,6 +309,8 @@ function cargarDatos() {
     if (res[8].error) throw res[8].error;
     if (res[9].error) throw res[9].error;
     if (res[10].error) throw res[10].error;
+    if (res[11].error) throw res[11].error;
+    if (res[12].error) throw res[12].error; // <-- NUEVO ERROR CHECK
 
     D.temporadas = res[0].data;
     D.partidos = res[1].data;
@@ -320,7 +322,10 @@ function cargarDatos() {
     D.rivalidades = res[7].data;
     D.rankingVista = res[8].data;
     D.rankingPorTemp = res[9].data;
-    D.dreamTeam = res[10].data;;
+    D.dreamTeam = res[10].data;
+    D.pierdeContra = res[11].data;
+    D.ewrUltimas2 = res[12].data; // <-- NUEVO: Guardar datos de la vista
+    
     buildCopasMap();
     tAct = D.temporadas.find(function (t) { return !t.finalizada; }) || D.temporadas[0] || null;
     return true;
@@ -459,39 +464,58 @@ function renderHero() {
   }
 
   document.getElementById('nav-ins').textContent = 'T' + s.numero_temporada;
-  document.getElementById('c1-n').innerHTML = '<div class="flex flex-col items-center gap-1"><div class="flex-shrink-0">' + getFotoHTML(c1n, 'hero') + '</div><span class="truncate uppercase text-lg sm:text-xl md:text-2xl tracking-wider font-bold">' + c1n + '</span></div>';  document.getElementById('c1-c').textContent = c1 ? fN(c1.calificacion) : '--';
-  document.getElementById('c2-n').innerHTML = '<div class="flex flex-col items-center gap-1"><div class="flex-shrink-0">' + getFotoHTML(c2n, 'hero') + '</div><span class="truncate uppercase text-lg sm:text-xl md:text-2xl tracking-wider font-bold">' + c2n + '</span></div>';  document.getElementById('c2-c').textContent = c2 ? fN(c2.calificacion) : '--';
+  document.getElementById('c1-n').innerHTML = '<div class="flex flex-col items-center gap-1"><div class="flex-shrink-0">' + getFotoHTML(c1n, 'hero') + '</div><span class="truncate uppercase text-lg sm:text-xl md:text-2xl tracking-wider font-bold">' + c1n + '</span></div>';
+  document.getElementById('c1-c').textContent = c1 ? fN(c1.calificacion) : '--';
+  document.getElementById('c2-n').innerHTML = '<div class="flex flex-col items-center gap-1"><div class="flex-shrink-0">' + getFotoHTML(c2n, 'hero') + '</div><span class="truncate uppercase text-lg sm:text-xl md:text-2xl tracking-wider font-bold">' + c2n + '</span></div>';
+  document.getElementById('c2-c').textContent = c2 ? fN(c2.calificacion) : '--';
   document.getElementById('th-c1').textContent = c1n.substring(0, 8);
   document.getElementById('th-c2').textContent = c2n.substring(0, 8);
 
-  var u2s = calcStatsParciales(getUltimas2Temps());
-  var sC1 = u2s[c1n] || { v: 0, e: 0, d: 0 };
-  var sC2 = u2s[c2n] || { v: 0, e: 0, d: 0 };
-  var ew1 = calcEWR(sC1.v, sC1.e, sC1.d);
-  var ew2 = calcEWR(sC2.v, sC2.e, sC2.d);
+  // ====================================================================
+  // NUEVO: Obtener EWinrate de la vista SQL para las últimas 2 temporadas
+  // ====================================================================
+  var ewrData = D.ewrUltimas2 || [];
+  
+  // Buscar el registro de la vista para el Capitán 1 en esta temporada
+  var dataC1 = ewrData.find(function(e) { 
+    return e.numero_temporada === s.numero_temporada && e.jugador_nombre === c1n; 
+  });
+  
+  // Buscar el registro de la vista para el Capitán 2 en esta temporada
+  var dataC2 = ewrData.find(function(e) { 
+    return e.numero_temporada === s.numero_temporada && e.jugador_nombre === c2n; 
+  });
+
+  // Si no hay datos, por defecto es 0
+  var ew1 = dataC1 ? Number(dataC1.ewinrate) : 0;
+  var ew2 = dataC2 ? Number(dataC2.ewinrate) : 0;
+
   document.getElementById('c1-ew').textContent = fN(ew1, 1) + '%';
   document.getElementById('c1-eb').style.width = fN(ew1, 0) + '%';
   document.getElementById('c2-ew').textContent = fN(ew2, 1) + '%';
   document.getElementById('c2-eb').style.width = fN(ew2, 0) + '%';
+  // ====================================================================
 
   var ms = pTemp(s.numero_temporada).filter(function (m) { return m.tipo_partido === 'oficial'; });
   var v1 = 0, e1 = 0, d1 = 0, v2 = 0, e2 = 0, d2 = 0, g1 = 0, g2 = 0;
   ms.forEach(function (m) {
-  g1 += (m.goles_equipo1 || 0);
-  g2 += (m.goles_equipo2 || 0);
+    g1 += (m.goles_equipo1 || 0);
+    g2 += (m.goles_equipo2 || 0);
     if (m.resultado === 'ganador_equipo1') { v1++; d2++; }
-else if (m.resultado === 'ganador_equipo2') { v2++; d1++; }
-else { e1++; e2++; }
+    else if (m.resultado === 'ganador_equipo2') { v2++; d1++; }
+    else { e1++; e2++; }
   });
-  document.getElementById('c1-v').textContent = v1;
-  document.getElementById('c1-e').textContent = e1;
-  document.getElementById('c1-d').textContent = d1;
-  document.getElementById('c2-v').textContent = v2;
-  document.getElementById('c2-e').textContent = e2;
-  document.getElementById('c2-d').textContent = d2;
+
+  // Actualizar SOLO el marcador central
+  var centroV1 = document.getElementById('centro-v1');
+  var centroE = document.getElementById('centro-e');
+  var centroV2 = document.getElementById('centro-v2');
+  
+  if (centroV1) centroV1.textContent = v1;
+  if (centroE) centroE.textContent = e1;
+  if (centroV2) centroV2.textContent = v2;
 
   // --- CALCULAR Y MOSTRAR MARCADOR H2H ---
-   // --- CALCULAR TEMPORADAS GANADAS H2H ---
   var marcadorEl = document.getElementById('marcador-h2h');
   var c1nHist = nLimpio(c1n);
   var c2nHist = nLimpio(c2n);
@@ -499,15 +523,12 @@ else { e1++; e2++; }
   var victC1 = 0;
   var victC2 = 0;
   
-  // Recorremos el historial de TODAS las temporadas
   D.temporadas.forEach(function(t) {
     var t1 = nLimpio(t.capitan1_nombre);
     var t2 = nLimpio(t.capitan2_nombre);
     
-    // Verificamos si se enfrentaron en esta temporada (sin importar quién fue cap1 o cap2)
     var seEnfrentaron = (t1 === c1nHist && t2 === c2nHist) || (t1 === c2nHist && t2 === c1nHist);
     
-    // Si se enfrentaron Y la temporada ya tiene un ganador registrado
     if (seEnfrentaron && t.ganador_nombre) {
       var ganador = nLimpio(t.ganador_nombre);
       if (ganador === c1nHist) victC1++;
@@ -515,7 +536,6 @@ else { e1++; e2++; }
     }
   });
 
-  // Mostramos el resultado
   if (victC1 > 0 || victC2 > 0) {
     marcadorEl.innerHTML = 
       '<div class="marcador-h2h">' +
@@ -527,11 +547,9 @@ else { e1++; e2++; }
   } else {
     marcadorEl.innerHTML = '<div class="h2h-pj text-center" style="margin-top:0.5rem">Primer <br> enfrentamiento</div>';
   }
-  // --- FIN TEMPORADAS GANADAS H2H ---
 
   renderBarraGoles(g1, g2, c1n, c2n);
 }
-
  
 function renderBarraGoles(g1, g2, n1, n2) {
   var total = g1 + g2;
@@ -617,7 +635,27 @@ function renderPartidos() {
   var tb = document.getElementById('tb-part');
   document.getElementById('c-part').textContent = ms.length + ' partidos';
 
-    var tipoTexto = tipoPartidoFiltro === 'oficial' ? 'oficiales' : (tipoPartidoFiltro === 'capitania' ? 'por capitanía' : 'amistosos');
+  // ====================================================================
+  // SOLUCIÓN: Ocultar capitanes en Amistosos y Capitanía
+  // ====================================================================
+  var ocultarCapitanes = (tipoPartidoFiltro === 'amistoso' || tipoPartidoFiltro === 'capitania');
+  var thC1 = document.getElementById('th-c1');
+  var thC2 = document.getElementById('th-c2');
+  
+  if (ocultarCapitanes) {
+    // En amistosos y capitanía, mostramos texto genérico
+    if (thC1) thC1.textContent = 'Equipo 1';
+    if (thC2) thC2.textContent = 'Equipo 2';
+  } else {
+    // En oficiales, restauramos el nombre del capitán real
+    var c1nTemp = tAct ? tAct.capitan1_nombre : 'Cap. 1';
+    var c2nTemp = tAct ? tAct.capitan2_nombre : 'Cap. 2';
+    if (thC1) thC1.textContent = c1nTemp.substring(0, 8);
+    if (thC2) thC2.textContent = c2nTemp.substring(0, 8);
+  }
+  // ====================================================================
+
+  var tipoTexto = tipoPartidoFiltro === 'oficial' ? 'oficiales' : (tipoPartidoFiltro === 'capitania' ? 'por capitanía' : 'amistosos');
   if (!ms.length) {
     tb.innerHTML = '<tr><td colspan="8" class="px-4 py-8 text-center text-muted text-sm">Sin partidos ' + tipoTexto + ' registrados</td></tr>';
     return;
@@ -630,10 +668,8 @@ function renderPartidos() {
     var alis = m.partido_alineaciones || [];
     var did = 'det-t' + numTemp + '-p' + m.numero_partido;
     var esUlt = idx === ms.length - 1;
-        // 1. Detectar automáticamente quiénes son los capitanes DE ESTE PARTIDO
- var c1nPartido = m.capitan1_nombre || c1n; // Capitán real de la izquierda
+    var c1nPartido = m.capitan1_nombre || c1n;
 
-    // 2. Usar c1nPartido para los MVPs
     var mvp1 = alis.find(function (a) { return a.mvp && a.numero_equipo === 1; });
     var mvp2 = alis.find(function (a) { return a.mvp && a.numero_equipo === 2; });
     var rc = m.resultado === 'ganador_equipo1' ? 'bg1' : m.resultado === 'ganador_equipo2' ? 'bg2' : 'bge';
@@ -659,66 +695,64 @@ function renderPartidos() {
 
     html += '<tr id="' + did + '" style="display:none" class="fila-det"><td colspan="8" class="px-4 py-0">';
 
-    // --- AQUÍ EMPIEZA LA CANCHA ---
-     if (!tA) {
+    if (!tA) {
       html += '<div class="py-4 text-center text-muted/40 text-xs">Sin alineaciones</div>';
     } else {
-            // Usar c1nPartido en lugar de c1n para separar los equipos correctamente
       var eq1 = alis.filter(function (a) { return a.numero_equipo === 1; });
       var eq2 = alis.filter(function (a) { return a.numero_equipo === 2; });
-      // OBTENEMOS EL AÑO DE ESTE PARTIDO EN ESPECÍFICO
       var anioDeEstePartido = anioP(m); 
-    // Usamos calJHistorica en lugar de calJ
+      
       var cE1 = 0; eq1.forEach(function (a) { cE1 += calJHistorica(a.jugador_nombre, anioDeEstePartido); });
       var cE2 = 0; eq2.forEach(function (a) { cE2 += calJHistorica(a.jugador_nombre, anioDeEstePartido); });
 
       html += '<div class="cancha-wrap">';
-      
-      // Cabecera Puntajes
       html += '<div class="cancha-header">';
       html += '<span class="cancha-rat text-cap1 num">' + fN(cE1, 1) + ' <span class="text-[1rem] text-muted font-display ml-1">EQ1</span></span>';
       html += '<span class="text-muted/50 text-[.45rem] font-display tracking-widest uppercase">Formación</span>';
       html += '<span class="cancha-rat text-cap2 num text-right"><span class="text-[1rem] text-muted font-display mr-1">EQ2</span> ' + fN(cE2, 1) + '</span>';
       html += '</div>';
 
-      // Cancha
       html += '<div class="cancha"><div class="cancha-circulo" ></div>';
-      
-      // Contenedor de Pentágonos
       html += '<div class="cancha-pentagonos">';
-      html += htmlPentagono(eq1, COORDS_EQ1, tAct.capitan1_nombre, anioDeEstePartido);
       
-      // Espacio central (opcional, para dar aire entre los puntas de los pentágonos)
-      html += '<div style="width: 20px; flex-shrink: 0;"></div>'; 
-      
-      html += htmlPentagono(eq2, COORDS_EQ2, tAct.capitan2_nombre, anioDeEstePartido);
-      html += '</div>'; // fin .cancha-pentagonos
+      // --- AQUÍ SE OCULTAN LOS NOMBRES DE CAPITANES EN AMISTOSOS Y CAPITANÍA ---
+      var cap1Mostrar = ocultarCapitanes ? '' : tAct.capitan1_nombre;
+      var cap2Mostrar = ocultarCapitanes ? '' : tAct.capitan2_nombre;
 
+      html += htmlPentagono(eq1, COORDS_EQ1, cap1Mostrar, anioDeEstePartido);
+      html += '<div style="width: 20px; flex-shrink: 0;"></div>'; 
+      html += htmlPentagono(eq2, COORDS_EQ2, cap2Mostrar, anioDeEstePartido);
+      
+      html += '</div>'; // fin .cancha-pentagonos
       html += '</div>'; // fin .cancha
       html += '</div>'; // fin .cancha-wrap
     }
-    // --- AQUÍ TERMINA LA CANCHA ---
 
     html += '</td></tr>';
   });
 
   tb.innerHTML = html;
 }
-
+/* ═══════════════════════════════════════════════
+   SINERGIAS TEMPORADA — Desde Supabase
+   ═══════════════════════════════════════════════ */
 /* ═══════════════════════════════════════════════
    SINERGIAS TEMPORADA — Desde Supabase
    ═══════════════════════════════════════════════ */
 function renderSinergias() {
-  // 1. Obtener el número de la temporada que estamos viendo actualmente
   var tempActual = tAct ? tAct.numero_temporada : -1;
-
-  // 2. Filtrar los datos PARA ESTA TEMPORADA en específico
   var datos = (D.sinergias_temp || []).filter(function(s) {
     return s.numero_temporada === tempActual;
   });
 
   var g = document.getElementById('gr-sin');
   document.getElementById('c-sin').textContent = datos.length + ' duplas';
+  
+  // --- ORDENAR DE MAYOR A MENOR EWINRATE ---
+  datos.sort(function(a, b) {
+    return (Number(b.ewinrate) || 0) - (Number(a.ewinrate) || 0);
+  });
+
   var top = datos.slice(0, 4);
   
   if (!top.length) {
@@ -729,11 +763,10 @@ function renderSinergias() {
   var h = '';
   for (var i = 0; i < top.length; i++) {
     var p = top[i];
-    // Multiplicamos por 100 porque la nueva vista SQL devuelve el decimal (ej. 0.65)
     var ewr = (Number(p.ewinrate) * 100) || 0; 
-    var pj = p.total_partidos || 0; // <--- EXTRAEMOS LOS PARTIDOS JUNTOS
+    var pj = p.total_partidos || 0;
     var rk = getRkIcon(i);
-    var ewrC = ewr >= 60 ? 'text-pitch' : ewr >= 40 ? 'text-accent' : ewr >= 20 ? 'text-white/70' : 'text-red-400';
+    var ewrC = 'text-pitch'; // --- SIEMPRE VERDE ---
     
     h += '<div class="sin-card bg-card border ' + (i < 3 ? 'bgrad border-accent/20' : 'border-brd') + ' rounded-xl p-3 flex items-center justify-between">' +
       '<div class="flex items-center gap-2 min-w-0">' + rk + 
@@ -742,7 +775,6 @@ function renderSinergias() {
       '<span class="text-accent/40 text-[.65rem]">con</span>' + 
       getFotoHTML(p.jugador_2, 'sinergias') + 
       '<span class="text-white text-[.8rem] font-semibold truncate">' + nLimpio(p.jugador_2) + '</span>' +
-      // --- NUEVA ETIQUETA DE PARTIDOS JUNTOS ---
       '<span class="text-muted text-[.6rem] font-display ml-1">' + pj + ' PJ</span>' +
       '</div>' +      
       '<span class="' + ewrC + ' font-display font-bold text-lg num flex-shrink-0 ml-2">' + fN(ewr, 1) + '%</span>' +
@@ -758,6 +790,12 @@ function renderSinergiasHistoricas() {
   var datos = D.sinergias || [];
   var g = document.getElementById('gr-sin-hist');
   document.getElementById('c-sin-hist').textContent = datos.length + ' duplas';
+  
+  // --- ORDENAR USANDO EL SCORE JUSTO DE LA BASE DE DATOS ---
+  datos.sort(function(a, b) {
+    return Number(b.score_justo) - Number(a.score_justo);
+  });
+
   var top = datos.slice(0, 8);
   
   if (!top.length) {
@@ -768,23 +806,22 @@ function renderSinergiasHistoricas() {
   var h = '';
   for (var i = 0; i < top.length; i++) {
     var p = top[i];
-    var v = p.victorias || 0;
-    var e = p.empates || 0;
-    var d = p.derrotas || 0;
-    var pj = v + e + d; // <--- CALCULAMOS LOS PARTIDOS JUNTOS
+    var v = Number(p.victorias) || 0;
+    var e = Number(p.empates) || 0;
+    var d = Number(p.derrotas) || 0;
+    var pj = Number(p.partidos_juntos) || 0;
     
-    var ewr = calcEWR(v, e, d);
+    var ewr = calcEWR(v, e, d); 
     var rk = getRkIcon(i);
-    var ewrC = ewr >= 60 ? 'text-pitch' : ewr >= 40 ? 'text-accent' : ewr >= 20 ? 'text-white/70' : 'text-red-400';
+    var ewrC = 'text-pitch'; // Mantenemos el verde
     
     h += '<div class="sin-card bg-card border ' + (i < 3 ? 'bgrad border-accent/20' : 'border-brd') + ' rounded-xl p-3 flex items-center justify-between">' +
       '<div class="flex items-center gap-2 min-w-0">' + rk + 
       getFotoHTML(p.jugador1, 'sinergias_hist') + 
       '<span class="text-white text-[.8rem] font-semibold truncate">' + nLimpio(p.jugador1) + '</span>' +
       '<span class="text-accent/40 text-[.65rem]">con</span>' + 
-      getFotoHTML(p.jugador2, 'sinergias_hist') + /* <--- CORREGIDO AQUÍ */ 
+      getFotoHTML(p.jugador2, 'sinergias_hist') + 
       '<span class="text-white text-[.8rem] font-semibold truncate">' + nLimpio(p.jugador2) + '</span>' +
-      // --- NUEVA ETIQUETA DE PARTIDOS JUNTOS ---
       '<span class="text-muted text-[.6rem] font-display ml-1">' + pj + ' PJ</span>' +
       '</div>' +      
       '<span class="' + ewrC + ' font-display font-bold text-lg num flex-shrink-0 ml-2">' + fN(ewr, 1) + '%</span>' +
@@ -792,6 +829,7 @@ function renderSinergiasHistoricas() {
   }
   g.innerHTML = h;
 }
+
 /* ═══════════════════════════════════════════════
    RIVALIDADES HISTÓRICAS — Top 4, sin Magaly
    ═══════════════════════════════════════════════ */
@@ -815,17 +853,18 @@ function renderRivalidadesHistoricas() {
 
     var v1 = r.victorias || 0;
     var e = r.empates || 0;
-    var pj = r.totalenfrentamientos || 0; // Total de enfrentamientos
+    var pj = r.totalenfrentamientos || 0;
     var d1 = pj - v1 - e;
 
     if (ewr > NEUTRO) {
-      ganan.push({ ganador: nLimpio(r.jugador1), perdedor: nLimpio(r.jugador2), ewr: ewr, desbalance: Math.abs(ewr - NEUTRO), pj: pj }); // <--- AÑADIDO pj: pj
+      ganan.push({ ganador: nLimpio(r.jugador1), perdedor: nLimpio(r.jugador2), ewr: ewr, desbalance: Math.abs(ewr - NEUTRO), pj: pj });
     } else {
       var ewr2 = calcEWR(d1, e, v1) / 100;
-      ganan.push({ ganador: nLimpio(r.jugador2), perdedor: nLimpio(r.jugador1), ewr: ewr2, desbalance: Math.abs(ewr - NEUTRO), pj: pj }); // <--- AÑADIDO pj: pj
+      ganan.push({ ganador: nLimpio(r.jugador2), perdedor: nLimpio(r.jugador1), ewr: ewr2, desbalance: Math.abs(ewr - NEUTRO), pj: pj });
     }
   }
 
+  // --- ORDENAR DE MAYOR A MENOR DESBALANCE ---
   ganan.sort(function (a, b) { return b.desbalance - a.desbalance; });
   var top4 = ganan.slice(0, 6);
 
@@ -839,7 +878,7 @@ function renderRivalidadesHistoricas() {
       var p = top4[j];
       var rk = getRkIcon(j);
       var ewrPct = p.ewr * 100;
-      var ewrC = ewrPct >= 60 ? 'text-pitch' : ewrPct >= 40 ? 'text-accent' : ewrPct >= 20 ? 'text-white/70' : 'text-red-400';
+      var ewrC = 'text-pitch'; // --- SIEMPRE VERDE ---
       
       h += '<div class="sin-card bg-card border ' + (j < 3 ? 'bgrad border-accent/20' : 'border-brd') + ' rounded-xl p-3 flex items-center justify-between">' +
         '<div class="flex items-center gap-2 min-w-0">' + rk + 
@@ -848,7 +887,6 @@ function renderRivalidadesHistoricas() {
         '<span class="text-pitch/60 text-[.65rem]">gana contra</span>' + 
         getFotoHTML(p.perdedor, 'rivalidades') + 
         '<span class="text-white text-[.8rem] font-semibold truncate">' + p.perdedor + '</span>' +
-        // --- NUEVA ETIQUETA DE ENFRENTAMIENTOS ---
         '<span class="text-muted text-[.6rem] font-display ml-1">' + p.pj + ' PJ</span>' +
         '</div>' +        
         '<span class="' + ewrC + ' font-display font-bold text-lg num flex-shrink-0 ml-2">' + fN(ewrPct, 1) + '%</span>' +
@@ -874,34 +912,25 @@ function getTopCompaneros(nombre) {
 
 function getTopRivales(nombre) {
   var res = [];
-  var datos = (D.rivalidades || []).filter(function (r) {
-    return (r.totalenfrentamientos || 0) > 6;
+  // Filtramos la nueva vista por el jugador seleccionado
+  var datos = (D.pierdeContra || []).filter(function (r) {
+    return r.jugador_nombre === nombre;
   });
-  var NEUTRO = 1 / 3;
+
   for (var i = 0; i < datos.length; i++) {
     var r = datos[i];
     var ewr = Number(r.ewinrate) || 0;
-    var desbalance = Math.abs(ewr - NEUTRO);
-    if (desbalance < 0.01) continue;
-
-    var otroNombre, miEwr;
-    if (r.jugador1 === nombre) {
-      otroNombre = r.jugador2;
-      miEwr = ewr;
-    } else if (r.jugador2 === nombre) {
-      otroNombre = r.jugador1;
-      var v1 = r.victorias || 0;
-      var e = r.empates || 0;
-      var pj = r.totalenfrentamientos || 0;
-      var d1 = pj - v1 - e;
-      miEwr = calcEWR(d1, e, v1) / 100;
-    } else {
-      continue;
+    
+    // Ampliamos a menor al 50% (0.50) para considerar a los que más le ganan
+    if (ewr < 0.50) {
+      res.push({ nombre: r.rival_nombre, ewr: ewr * 100, pj: r.total_enfrentamientos });
     }
-
-    res.push({ nombre: otroNombre, desbalance: desbalance, ewr: miEwr });
   }
-  res.sort(function (a, b) { return b.desbalance - a.desbalance; });
+  
+  // Ordenamos de MENOR a MAYOR EWinrate (los que más pierde arriba)
+  res.sort(function (a, b) { return a.ewr - b.ewr; });
+  
+  // Devolvemos el Top 5
   return res.slice(0, 5);
 }
 function getRkIcon(i) {
@@ -1081,7 +1110,7 @@ function renderRankingBody() {
     var cjC = cp.jugadas > 0 ? 'copa-jug' : 'copa-zero';
     var cgC = cp.ganadas > 0 ? 'copa-gan' : 'copa-zero';
     var copaH = '<span class="copa-badge"><i class="fa-solid fa-trophy text-[.5rem] ' + cgC + '"></i><span class="' + cjC + ' num">' + cp.jugadas + '</span><span class="copa-zero">/</span><span class="' + cgC + ' num">' + cp.ganadas + '</span></span>';
-    var pfC = pf >= 1.8 ? 'pf-top' : pf >= 1.2 ? 'pf-mid' : 'pf-low';
+    var pfC = 'pf-mid'; 
 
     html += '<tr class="border-b border-brd/30 transition-colors fila-anim" style="animation-delay:' + (i * 0.025) + 's">' +
       '<td class="px-2 py-2" data-col="nombre"><div class="flex items-center gap-1.5">' + rk + getFotoHTML(d.nombre, 'ranking') + '<span class="jug-clickable text-white text-[.8rem] font-semibold" data-jugador="' + escAttr(d.nombre) + '">' + d.nLimpio + '</span></div></td>' +      '<td class="px-2 py-2 text-center" data-col="copas">' + copaH + '</td>' +
@@ -1619,18 +1648,6 @@ function cambiarTema() {
 
 /* ── Init ── */
 function init() {
-  // DEBUG TEMPORAL - borrar después de verificar
-  sb.from('jugadores').select('*').then(function(r) {
-    console.log('Jugadores:', r.data ? r.data.length : 'ERROR', r.error || '');
-  });
-  sb.from('temporadas').select('*').then(function(r) {
-    console.log('Temporadas:', r.data ? r.data.length : 'ERROR', r.error || '');
-  });
-  sb.from('partidos').select('*').then(function(r) {
-    console.log('Partidos:', r.data ? r.data.length : 'ERROR', r.error || '');
-  });
-  // FIN DEBUG
-
   cargarDatos().then(function () {
     calcEG();
     renderSel();
