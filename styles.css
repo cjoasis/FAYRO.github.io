@@ -478,3 +478,149 @@ select {
   from { filter: saturate(100%); }
   to { filter: saturate(0%); }
 }
+
+/* ═══════════════════════════════════════════════
+   LÍNEA DE TIEMPO DE TEMPORADAS (ÁRBOL DE LINAJE)
+   ═══════════════════════════════════════════════ */
+.timeline-temporadas {
+  position: relative;
+  max-width: 700px;
+  margin: 0 auto;
+  padding: 1rem 0;
+}
+.timeline-temporadas::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  background: var(--border-main);
+  transform: translateX(-50%);
+}
+
+.timeline-nodo {
+  position: relative;
+  margin-bottom: 2.5rem;
+  display: flex;
+  justify-content: center;
+}
+
+.timeline-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-main);
+  border-radius: 1rem;
+  padding: 1rem;
+  width: 100%;
+  max-width: 400px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  z-index: 2;
+}
+.timeline-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-3px);
+  box-shadow: 0 5px 20px rgba(0,0,0,.5);
+}
+
+.timeline-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+.timeline-num {
+  font-family: 'Oswald', sans-serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--accent);
+  background: rgba(232,184,48,.1);
+  padding: 0.2rem 0.8rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(232,184,48,.2);
+}
+
+.timeline-vs {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+}
+
+.timeline-cap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  text-align: center;
+  width: 45%;
+}
+
+.timeline-foto {
+  position: relative;
+  transition: all 0.3s ease;
+}
+.timeline-foto img {
+  border-radius: 50%;
+  border: 3px solid transparent;
+  transition: all 0.3s ease;
+}
+
+/* Estados de Ganador y Perdedor */
+.timeline-cap.ganador .timeline-foto img {
+  border-color: var(--accent);
+  box-shadow: 0 0 15px rgba(232,184,48,.4);
+}
+.timeline-cap.ganador .timeline-crown {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--accent);
+  font-size: 1rem;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,.5));
+}
+.timeline-cap.perdedor .timeline-foto img {
+  filter: grayscale(100%) brightness(0.6);
+}
+
+.timeline-nombre {
+  font-family: 'Oswald', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.timeline-cap.perdedor .timeline-nombre {
+  color: var(--text-muted);
+}
+
+.timeline-vs-center {
+  font-family: 'Oswald', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--bg-body);
+  padding: 0.3rem 0.5rem;
+  border-radius: 0.3rem;
+  border: 1px solid var(--border-main);
+}
+
+/* Responsive: En celular, la línea se mueve a la izquierda */
+@media (max-width: 640px) {
+  .timeline-temporadas::before {
+    left: 20px;
+  }
+  .timeline-nodo {
+    justify-content: flex-start;
+    padding-left: 50px;
+  }
+  .timeline-card {
+    max-width: 100%;
+  }
+}
