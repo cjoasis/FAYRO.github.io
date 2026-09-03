@@ -452,8 +452,8 @@ function renderHero() {
   var s = tAct;
   var c1 = s.capitan1 || null;
   var c2 = s.capitan2 || null;
-  var c1n = c1 ? c1.nombre : '--';
-  var c2n = c2 ? c2.nombre : '--';
+  var c1n = c1 ? c1.nombre : 'Por definir';
+  var c2n = c2 ? c2.nombre : 'Por definir';
 
   document.getElementById('h-tit').textContent = 'Temporada ' + s.numero_temporada;
   var estEl = document.getElementById('h-est');
@@ -464,29 +464,47 @@ function renderHero() {
   }
 
   document.getElementById('nav-ins').textContent = 'T' + s.numero_temporada;
-  document.getElementById('c1-n').innerHTML = '<div class="flex flex-col items-center gap-1"><div class="flex-shrink-0">' + getFotoHTML(c1n, 'hero') + '</div><span class="truncate uppercase text-lg sm:text-xl md:text-2xl tracking-wider font-bold">' + c1n + '</span></div>';
-  document.getElementById('c1-c').textContent = c1 ? fN(c1.calificacion) : '--';
-  document.getElementById('c2-n').innerHTML = '<div class="flex flex-col items-center gap-1"><div class="flex-shrink-0">' + getFotoHTML(c2n, 'hero') + '</div><span class="truncate uppercase text-lg sm:text-xl md:text-2xl tracking-wider font-bold">' + c2n + '</span></div>';
-  document.getElementById('c2-c').textContent = c2 ? fN(c2.calificacion) : '--';
-  document.getElementById('th-c1').textContent = c1n.substring(0, 8);
-  document.getElementById('th-c2').textContent = c2n.substring(0, 8);
+  
+  // Generamos el HTML de la imagen base
+  var img1HTML = c1 ? getFotoHTML(c1.nombre, 'hero') : '<img src="nadie.gif" alt="Sin capitan" class="object-cover flex-shrink-0 rounded-full" style="width: 7rem; height: 7rem;">';
+  var img2HTML = c2 ? getFotoHTML(c2.nombre, 'hero') : '<img src="nadie.gif" alt="Sin capitan" class="object-cover flex-shrink-0 rounded-full" style="width: 7rem; height: 7rem;">';
 
   // ====================================================================
-  // NUEVO: Obtener EWinrate de la vista SQL para las últimas 2 temporadas
+  // LÓGICA DE DERROTA: Si la temporada finalizó y NO es el ganador, le aplicamos la clase CSS
+  // ====================================================================
+  if (s.finalizada && s.ganador_nombre) {
+    if (c1 && c1.nombre !== s.ganador_nombre) {
+      // Reemplazamos la clase para añadir la animación de derrota
+      img1HTML = img1HTML.replace('class="object-cover', 'class="img-derrota object-cover');
+    }
+    if (c2 && c2.nombre !== s.ganador_nombre) {
+      img2HTML = img2HTML.replace('class="object-cover', 'class="img-derrota object-cover');
+    }
+  }
+  // ====================================================================
+
+  document.getElementById('c1-n').innerHTML = '<div class="flex flex-col items-center gap-1"><div class="flex-shrink-0">' + img1HTML + '</div><span class="truncate uppercase text-lg sm:text-xl md:text-2xl tracking-wider font-bold">' + c1n + '</span></div>';
+  document.getElementById('c1-c').textContent = c1 ? fN(c1.calificacion) : '--';
+  
+  document.getElementById('c2-n').innerHTML = '<div class="flex flex-col items-center gap-1"><div class="flex-shrink-0">' + img2HTML + '</div><span class="truncate uppercase text-lg sm:text-xl md:text-2xl tracking-wider font-bold">' + c2n + '</span></div>';
+  document.getElementById('c2-c').textContent = c2 ? fN(c2.calificacion) : '--';
+  
+  document.getElementById('th-c1').textContent = (c1 && c1.nombre) ? c1n.substring(0, 8) : 'Equipo 1';
+  document.getElementById('th-c2').textContent = (c2 && c2.nombre) ? c2n.substring(0, 8) : 'Equipo 2';
+
+  // ====================================================================
+  // Obtener EWinrate de la vista SQL para las últimas 2 temporadas
   // ====================================================================
   var ewrData = D.ewrUltimas2 || [];
   
-  // Buscar el registro de la vista para el Capitán 1 en esta temporada
   var dataC1 = ewrData.find(function(e) { 
     return e.numero_temporada === s.numero_temporada && e.jugador_nombre === c1n; 
   });
   
-  // Buscar el registro de la vista para el Capitán 2 en esta temporada
   var dataC2 = ewrData.find(function(e) { 
     return e.numero_temporada === s.numero_temporada && e.jugador_nombre === c2n; 
   });
 
-  // Si no hay datos, por defecto es 0
   var ew1 = dataC1 ? Number(dataC1.ewinrate) : 0;
   var ew2 = dataC2 ? Number(dataC2.ewinrate) : 0;
 
@@ -494,7 +512,6 @@ function renderHero() {
   document.getElementById('c1-eb').style.width = fN(ew1, 0) + '%';
   document.getElementById('c2-ew').textContent = fN(ew2, 1) + '%';
   document.getElementById('c2-eb').style.width = fN(ew2, 0) + '%';
-  // ====================================================================
 
   var ms = pTemp(s.numero_temporada).filter(function (m) { return m.tipo_partido === 'oficial'; });
   var v1 = 0, e1 = 0, d1 = 0, v2 = 0, e2 = 0, d2 = 0, g1 = 0, g2 = 0;
@@ -506,7 +523,6 @@ function renderHero() {
     else { e1++; e2++; }
   });
 
-  // Actualizar SOLO el marcador central
   var centroV1 = document.getElementById('centro-v1');
   var centroE = document.getElementById('centro-e');
   var centroV2 = document.getElementById('centro-v2');
@@ -515,7 +531,6 @@ function renderHero() {
   if (centroE) centroE.textContent = e1;
   if (centroV2) centroV2.textContent = v2;
 
-  // --- CALCULAR Y MOSTRAR MARCADOR H2H ---
   var marcadorEl = document.getElementById('marcador-h2h');
   var c1nHist = nLimpio(c1n);
   var c2nHist = nLimpio(c2n);
@@ -643,16 +658,14 @@ function renderPartidos() {
   var thC2 = document.getElementById('th-c2');
   
   if (ocultarCapitanes) {
-    // En amistosos y capitanía, mostramos texto genérico
     if (thC1) thC1.textContent = 'Equipo 1';
     if (thC2) thC2.textContent = 'Equipo 2';
   } else {
-    // En oficiales, restauramos el nombre del capitán real
-    var c1nTemp = tAct ? tAct.capitan1_nombre : 'Cap. 1';
-    var c2nTemp = tAct ? tAct.capitan2_nombre : 'Cap. 2';
+    var c1nTemp = (tAct && tAct.capitan1_nombre) ? tAct.capitan1_nombre : 'Equipo 1';
+    var c2nTemp = (tAct && tAct.capitan2_nombre) ? tAct.capitan2_nombre : 'Equipo 2';
     if (thC1) thC1.textContent = c1nTemp.substring(0, 8);
     if (thC2) thC2.textContent = c2nTemp.substring(0, 8);
-  }
+  } 
   // ====================================================================
 
   var tipoTexto = tipoPartidoFiltro === 'oficial' ? 'oficiales' : (tipoPartidoFiltro === 'capitania' ? 'por capitanía' : 'amistosos');
@@ -715,7 +728,6 @@ function renderPartidos() {
       html += '<div class="cancha"><div class="cancha-circulo" ></div>';
       html += '<div class="cancha-pentagonos">';
       
-      // --- AQUÍ SE OCULTAN LOS NOMBRES DE CAPITANES EN AMISTOSOS Y CAPITANÍA ---
       var cap1Mostrar = ocultarCapitanes ? '' : tAct.capitan1_nombre;
       var cap2Mostrar = ocultarCapitanes ? '' : tAct.capitan2_nombre;
 
@@ -830,9 +842,6 @@ function renderSinergiasHistoricas() {
   g.innerHTML = h;
 }
 
-/* ═══════════════════════════════════════════════
-   RIVALIDADES HISTÓRICAS — Top 4, sin Magaly
-   ═══════════════════════════════════════════════ */
 function renderRivalidadesHistoricas() {
   var datos = (D.rivalidades || []).filter(function (r) {
     return nLimpio(r.jugador1).toLowerCase().indexOf('magaly') === -1 &&
@@ -896,7 +905,6 @@ function renderRivalidadesHistoricas() {
   g.innerHTML = h;
 }
 
-/* ── Modal: compañeros y rivales ── */
 function getTopCompaneros(nombre) {
   var res = [];
   var datos = D.sinergias || [];
