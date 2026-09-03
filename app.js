@@ -1450,28 +1450,70 @@ function renderModalCalChart(nombre) {
 }
 
 /* ── Render: Temporadas ── */
+/* ── Render: Temporadas (Línea de Tiempo) ── */
 function renderTemps() {
   var g = document.getElementById('gr-temp');
   g.innerHTML = '';
-  D.temporadas.forEach(function (t) {
-    var ms = pTemp(t.numero_temporada);
-    var esC = t === tAct;
-    var sv = 0, se = 0, sd = 0;
-    ms.forEach(function (m) {
-      if (m.resultado === 'ganador_equipo1') sv++;
-      else if (m.resultado === 'ganador_equipo2') sd++;
-      else se++;
-    });
-    var ms2 = ms.length > 0 ? '<div class="flex items-center gap-2 mt-1.5"><span class="temp-mini-stat text-cap1">' + sv + 'V</span><span class="temp-mini-stat text-accent">' + se + 'E</span><span class="temp-mini-stat text-red-400">' + sd + 'D</span></div>' : '';
-    var div = document.createElement('div');
-    div.className = (esC ? 'bg-accent/[.04] border-accent/50' : 'bg-card border-brd') + ' border rounded-xl p-3.5 cursor-pointer hover:border-accent/30 transition-all group';
-    div.onclick = function () { verTemporada(t.numero_temporada); };
-    div.innerHTML = '<div class="flex items-center justify-between"><span class="font-display text-lg font-bold text-white group-hover:text-accent transition-colors">T' + t.numero_temporada + '</span>' + (esC ? '<span class="w-2 h-2 rounded-full bg-pitch animate-pulse"></span>' : '') + '</div>' +
-      '<p class="text-muted text-[.6rem] mt-0.5">' + ms.length + ' partido' + (ms.length !== 1 ? 's' : '') + '</p>' + ms2 +
-      (t.ganador_nombre ? '<p class="text-accent text-[.6rem] mt-1 truncate"><i class="fa-solid fa-trophy mr-0.5"></i>' + t.ganador_nombre + '</p>' : '') +
-      '<p class="text-[.55rem] mt-0.5 ' + (t.finalizada ? 'text-muted' : 'text-pitch/70') + '">' + (t.finalizada ? 'Finalizada' : 'En curso') + '</p>';
-    g.appendChild(div);
+  
+  // Ordenar de la más antigua a la más nueva (T1, T2, T3...)
+  var tempsOrdenadas = D.temporadas.slice().sort(function(a, b) { 
+    return a.numero_temporada - b.numero_temporada; 
   });
+
+  var html = '<div class="timeline-temporadas">';
+
+  tempsOrdenadas.forEach(function (t) {
+    var c1n = t.capitan1_nombre || 'Por Definir';
+    var c2n = t.capitan2_nombre || 'Por Definir';
+    var gann = t.ganador_nombre;
+    
+    // Determinar quién ganó y quién perdió
+    var esC1Ganador = (c1n === gann);
+    var esC2Ganador = (c2n === gann);
+    var hayGanador = !!gann;
+
+    html += '<div class="timeline-nodo">';
+    html += '<div class="timeline-card" onclick="verTemporada(' + t.numero_temporada + ')">';
+    
+    // Encabezado de la temporada
+    html += '<div class="timeline-header">';
+    html += '<span class="timeline-num">Temporada ' + t.numero_temporada + '</span>';
+    if (!t.finalizada) {
+      html += '<span style="font-size:.6rem; color:var(--pitch); display:flex; align-items:center; gap:.3rem;"><span style="width:6px; height:6px; background:var(--pitch); border-radius:0%;" class="animate-pulse"></span>En curso</span>';
+    }
+    html += '</div>';
+
+    // Fotos de Capitanes
+    html += '<div class="timeline-vs">';
+    
+    // Capitán 1
+    html += '<div class="timeline-cap ' + (hayGanador ? (esC1Ganador ? 'ganador' : 'perdedor') : '') + '">';
+    html += '<div class="timeline-foto">';
+    if (esC1Ganador) html += '<i class="fa-solid fa-crown timeline-crown"></i>';
+    html += getFotoHTML(c1n, 'hero');
+    html += '</div>';
+    html += '<span class="timeline-nombre">' + nLimpio(c1n) + '</span>';
+    html += '</div>';
+
+    // VS Centro
+    html += '<div class="timeline-vs-center">VS</div>';
+
+    // Capitán 2
+    html += '<div class="timeline-cap ' + (hayGanador ? (esC2Ganador ? 'ganador' : 'perdedor') : '') + '">';
+    html += '<div class="timeline-foto">';
+    if (esC2Ganador) html += '<i class="fa-solid fa-crown timeline-crown"></i>';
+    html += getFotoHTML(c2n, 'hero');
+    html += '</div>';
+    html += '<span class="timeline-nombre">' + nLimpio(c2n) + '</span>';
+    html += '</div>';
+
+    html += '</div>'; // Fin timeline-vs
+    html += '</div>'; // Fin timeline-card
+    html += '</div>'; // Fin timeline-nodo
+  });
+
+  html += '</div>'; // Fin timeline-temporadas
+  g.innerHTML = html;
 }
 
 function verTemporada(num) {
