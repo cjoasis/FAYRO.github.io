@@ -296,7 +296,8 @@ function cargarDatos() {
     sb.from('vista_ranking_por_temporada').select('*'),
     sb.from('vista_dream_team_temporada').select('*'),
     sb.from('vista_pierde_contra').select('*'),
-    sb.from('vista_ewinrate_ultimas_2_temp').select('*') // <-- NUEVA VISTA AÑADIDA AQUÍ
+    sb.from('vista_ewinrate_ultimas_2_temp').select('*') ,
+    sb.from('vista_linea_temporal_jugadores').select('*')
   ]).then(function (res) {
     if (res[0].error) throw res[0].error;
     if (res[1].error) throw res[1].error;
@@ -310,7 +311,8 @@ function cargarDatos() {
     if (res[9].error) throw res[9].error;
     if (res[10].error) throw res[10].error;
     if (res[11].error) throw res[11].error;
-    if (res[12].error) throw res[12].error; // <-- NUEVO ERROR CHECK
+    if (res[12].error) throw res[12].error; 
+    if (res[13].error) throw res[13].error;
 
     D.temporadas = res[0].data;
     D.partidos = res[1].data;
@@ -324,8 +326,9 @@ function cargarDatos() {
     D.rankingPorTemp = res[9].data;
     D.dreamTeam = res[10].data;
     D.pierdeContra = res[11].data;
-    D.ewrUltimas2 = res[12].data; // <-- NUEVO: Guardar datos de la vista
-    
+    D.ewrUltimas2 = res[12].data; 
+    D.lineaTemporal = res[13].data; 
+
     buildCopasMap();
     tAct = D.temporadas.find(function (t) { return !t.finalizada; }) || D.temporadas[0] || null;
     return true;
@@ -1259,9 +1262,20 @@ function renderModalChart(nombre) {
   var canvas = document.getElementById('g-modal');
   var ctx = canvas.getContext('2d');
   var emptyEl = document.getElementById('modal-tl-empty');
-  var datos = EG[nombre];
 
-  if (!datos || !datos.tl.length) {
+  // Filtramos la vista SQL por el jugador seleccionado
+  var datos = (D.lineaTemporal || []).filter(function(d) { 
+    return d.jugador_nombre === nombre; 
+  });
+
+  // Nos aseguramos de que estén ordenados cronológicamente por si acaso
+  datos.sort(function(a, b) { 
+    return a.numero_temporada !== b.numero_temporada ? 
+      a.numero_temporada - b.numero_temporada : 
+      a.numero_partido - b.numero_partido; 
+  });
+
+  if (!datos.length) {
     if (G.modalChart) {
       G.modalChart.data.labels = [];
       G.modalChart.data.datasets[0].data = [];
@@ -1274,14 +1288,16 @@ function renderModalChart(nombre) {
   }
 
   emptyEl.style.display = 'none';
-  var tl = filtrarTLOficial(datos.tl);
+  
   var labels = [];
   var vals = [];
-  for (var i = 0; i < tl.length; i++) {
-    labels.push(tl[i].anio || '--');
-    vals.push(tl[i]._cum);
+  for (var i = 0; i < datos.length; i++) {
+    labels.push(datos[i].label);
+    vals.push(datos[i].puntos_acumulados);
   }
-  G._modalTl = tl;
+  
+  // Guardamos los datos para usarlos en el Tooltip de la gráfica
+  G._modalTl = datos;
 
   if (!G.modalChart) {
     G.modalChart = new Chart(ctx, {
@@ -1291,14 +1307,13 @@ function renderModalChart(nombre) {
         datasets: [{
           label: 'Puntos',
           data: vals,
-          borderColor: '#5a7a5a', // Color base por defecto
+          borderColor: '#5a7a5a',
           borderWidth: 2.5,
           tension: 0.3,
-          fill: false, // Sin relleno para que las líneas de colores destaquen
+          fill: false,
           pointRadius: 0,
           pointHoverRadius: 4,
           pointHoverBackgroundColor: '#ffffff',
-          // --- MAGIA DEL SEMÁFORO AQUÍ ---
           segment: {
             borderColor: function(ctx) {
               if (ctx.p1.parsed.y > ctx.p0.parsed.y) return '#1db954'; // Verde (Sube)
@@ -1322,13 +1337,18 @@ function renderModalChart(nombre) {
                 var p = tlD ? tlD[ctx2.dataIndex] : null;
                 if (!p) return '';
                 var icono = p.res === 'V' ? '🟢' : p.res === 'E' ? '🟡' : '🔴';
-                return icono + ' ' + p.res + (p.res === 'V' ? ' (+1)' : p.res === 'E' ? ' (+0.33)' : ' (-1)');
+                // Usamos los puntos directos desde la base de datos
+                var signo = p.puntos > 0 ? ' +' : ' ';
+                return icono + ' ' + p.res + signo + p.puntos;
               }
             }
           }
         },
         scales: {
-          x: { ticks: { color: '#5a7a5a', font: { family: 'Oswald', size: 8 }, maxRotation: 0 }, grid: { color: 'rgba(30,42,30,.3)' } },
+          x: { 
+            ticks: { color: '#5a7a5a', font: { family: 'Oswald', size: 8 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }, 
+            grid: { color: 'rgba(30,42,30,.3)' } 
+          },
           y: { ticks: { color: '#5a7a5a', font: { family: 'Oswald', size: 9 } }, grid: { color: 'rgba(30,42,30,.3)' } }
         }
       }
@@ -1449,8 +1469,6 @@ function renderModalCalChart(nombre) {
   }
 }
 
-/* ── Render: Temporadas ── */
-/* ── Render: Temporadas (Línea de Tiempo) ── */
 function renderTemps() {
   var g = document.getElementById('gr-temp');
   g.innerHTML = '';
