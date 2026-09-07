@@ -724,7 +724,14 @@ function renderPartidos() {
       html += '<div class="cancha-wrap">';
       html += '<div class="cancha-header">';
       html += '<span class="cancha-rat text-cap1 num">' + fN(cE1, 1) + ' <span class="text-[1rem] text-muted font-display ml-1">EQ1</span></span>';
-      html += '<span class="text-muted/50 text-[.45rem] font-display tracking-widest uppercase">Formación</span>';
+      
+      // LÓGICA DEL VIDEO: Si el partido tiene enlace, mostramos el logo de YouTube, si no, "Formación"
+      var centroHTML = '<span class="text-muted/50 text-[.45rem] font-display tracking-widest uppercase">Formación</span>';
+      if (m.Video) {
+        centroHTML = '<a href="' + m.Video + '" target="_blank" class="text-red-500 hover:text-red-400 transition-colors text-lg" title="Ver video del partido"><i class="fa-brands fa-youtube"></i></a>';
+      }
+      html += centroHTML;
+
       html += '<span class="cancha-rat text-cap2 num text-right"><span class="text-[1rem] text-muted font-display mr-1">EQ2</span> ' + fN(cE2, 1) + '</span>';
       html += '</div>';
 
@@ -1382,9 +1389,8 @@ function renderModalCalChart(nombre) {
   var vals = [];
   for (var i = 0; i < registros.length; i++) {
     var fecha = new Date(registros[i].fecha_cambio);
-    var dia = fecha.getDate();
-    var mes = fecha.toLocaleString('es-ES', { month: 'short' });
-    labels.push(dia + ' ' + mes);
+    var anio = fecha.getFullYear(); // Obtenemos solo el año
+    labels.push(String(anio));      // Lo agregamos como texto
     vals.push(Number(registros[i].calificacion_nueva) || 0);
   }
 
