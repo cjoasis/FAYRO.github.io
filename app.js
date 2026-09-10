@@ -297,7 +297,7 @@ function cargarDatos() {
     sb.from('vista_dream_team_temporada').select('*'),
     sb.from('vista_pierde_contra').select('*'),
     sb.from('vista_ewinrate_ultimas_2_temp').select('*') ,
-    sb.from('vista_linea_temporal_jugadores').select('*')
+    sb.from('vista_linea_temporal_jugadores').select('*').range(0, 49999) // <-- Forzamos rango completo
   ]).then(function (res) {
     if (res[0].error) throw res[0].error;
     if (res[1].error) throw res[1].error;
@@ -1270,101 +1270,110 @@ function renderModalChart(nombre) {
   var ctx = canvas.getContext('2d');
   var emptyEl = document.getElementById('modal-tl-empty');
 
-  // Filtramos la vista SQL por el jugador seleccionado
-  var datos = (D.lineaTemporal || []).filter(function(d) { 
-    return d.jugador_nombre === nombre; 
-  });
-
-  // Nos aseguramos de que estén ordenados cronológicamente por si acaso
-  datos.sort(function(a, b) { 
-    return a.numero_temporada !== b.numero_temporada ? 
-      a.numero_temporada - b.numero_temporada : 
-      a.numero_partido - b.numero_partido; 
-  });
-
-  if (!datos.length) {
-    if (G.modalChart) {
-      G.modalChart.data.labels = [];
-      G.modalChart.data.datasets[0].data = [];
-      G.modalChart.update('none');
-    } else {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-    }
-    emptyEl.style.display = 'flex';
-    return;
+  // Limpiamos la gráfica anterior si existe
+  if (G.modalChart) {
+    G.modalChart.data.labels = [];
+    G.modalChart.data.datasets[0].data = [];
+    G.modalChart.update('none');
+  } else {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
   }
 
-  emptyEl.style.display = 'none';
-  
-  var labels = [];
-  var vals = [];
-  for (var i = 0; i < datos.length; i++) {
-    labels.push(datos[i].label);
-    vals.push(datos[i].puntos_acumulados);
-  }
-  
-  // Guardamos los datos para usarlos en el Tooltip de la gráfica
-  G._modalTl = datos;
+  // Mostramos el mensaje de "vacio" mientras carga
+  emptyEl.style.display = 'flex';
+  emptyEl.innerHTML = '<p class="text-muted/30 text-xs">Cargando línea temporal...</p>';
 
-  if (!G.modalChart) {
-    G.modalChart = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: labels,
-        datasets: [{
-          label: 'Puntos',
-          data: vals,
-          borderColor: '#5a7a5a',
-          borderWidth: 2.5,
-          tension: 0.3,
-          fill: false,
-          pointRadius: 0,
-          pointHoverRadius: 4,
-          pointHoverBackgroundColor: '#ffffff',
-          segment: {
-            borderColor: function(ctx) {
-              if (ctx.p1.parsed.y > ctx.p0.parsed.y) return '#1db954'; // Verde (Sube)
-              if (ctx.p1.parsed.y < ctx.p0.parsed.y) return '#ef4444'; // Rojo (Baja)
-              return '#e8b830'; // Amarillo (Se mantiene)
-            }
-          }
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            mode: 'index',
-            intersect: false,
-            callbacks: {
-              afterLabel: function (ctx2) {
-                var tlD = G._modalTl;
-                var p = tlD ? tlD[ctx2.dataIndex] : null;
-                if (!p) return '';
-                var icono = p.res === 'V' ? '🟢' : p.res === 'E' ? '🟡' : '🔴';
-                // Usamos los puntos directos desde la base de datos
-                var signo = p.puntos > 0 ? ' +' : ' ';
-                return icono + ' ' + p.res + signo + p.puntos;
+  // HACEMOS LA CONSULTA DIRECTA A SUPABASE SOLO PARA ESTE JUGADOR
+  sb.from('vista_linea_temporal_jugadores')
+    .select('*')
+    .eq('jugador_nombre', nombre)
+    .order('numero_temporada', { ascending: true })
+    .order('numero_partido', { ascending: true })
+    .then(function(res) {
+      if (res.error) {
+        console.error("Error cargando línea temporal:", res.error);
+        emptyEl.innerHTML = '<p class="text-muted/30 text-xs">Error al cargar datos</p>';
+        return;
+      }
+
+      var datos = res.data || [];
+
+      if (!datos.length) {
+        emptyEl.innerHTML = '<p class="text-muted/30 text-xs">Sin partidos registrados</p>';
+        return;
+      }
+
+      // Ocultamos el mensaje de vacío porque ya hay datos
+      emptyEl.style.display = 'none';
+
+      var labels = [];
+      var vals = [];
+      for (var i = 0; i < datos.length; i++) {
+        labels.push(datos[i].label);
+        vals.push(datos[i].puntos_acumulados);
+      }
+      
+      G._modalTl = datos;
+
+      if (!G.modalChart) {
+        G.modalChart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Puntos',
+              data: vals,
+              borderColor: '#5a7a5a',
+              borderWidth: 2.5,
+              tension: 0.3,
+              fill: false,
+              pointRadius: 0,
+              pointHoverRadius: 4,
+              pointHoverBackgroundColor: '#ffffff',
+              segment: {
+                borderColor: function(ctx) {
+                  if (ctx.p1.parsed.y > ctx.p0.parsed.y) return '#1db954';
+                  if (ctx.p1.parsed.y < ctx.p0.parsed.y) return '#ef4444';
+                  return '#e8b830';
+                }
               }
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                mode: 'index',
+                intersect: false,
+                callbacks: {
+                  afterLabel: function (ctx2) {
+                    var tlD = G._modalTl;
+                    var p = tlD ? tlD[ctx2.dataIndex] : null;
+                    if (!p) return '';
+                    var icono = p.res === 'V' ? '🟢' : p.res === 'E' ? '🟡' : '🔴';
+                    var signo = p.puntos > 0 ? ' +' : ' ';
+                    return icono + ' ' + p.res + signo + p.puntos;
+                  }
+                }
+              }
+            },
+            scales: {
+              x: { 
+                ticks: { color: '#5a7a5a', font: { family: 'Oswald', size: 8 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }, 
+                grid: { color: 'rgba(30,42,30,.3)' } 
+              },
+              y: { ticks: { color: '#5a7a5a', font: { family: 'Oswald', size: 9 } }, grid: { color: 'rgba(30,42,30,.3)' } }
             }
           }
-        },
-        scales: {
-          x: { 
-            ticks: { color: '#5a7a5a', font: { family: 'Oswald', size: 8 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }, 
-            grid: { color: 'rgba(30,42,30,.3)' } 
-          },
-          y: { ticks: { color: '#5a7a5a', font: { family: 'Oswald', size: 9 } }, grid: { color: 'rgba(30,42,30,.3)' } }
-        }
+        });
+      } else {
+        G.modalChart.data.labels = labels;
+        G.modalChart.data.datasets[0].data = vals;
+        G.modalChart.update('none');
       }
     });
-  } else {
-    G.modalChart.data.labels = labels;
-    G.modalChart.data.datasets[0].data = vals;
-    G.modalChart.update('none');
-  }
 }
 function renderModalCalChart(nombre) {
   var wrap = document.getElementById('modal-cal-wrap');
