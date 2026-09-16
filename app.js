@@ -856,8 +856,8 @@ function renderRivalidadesHistoricas() {
   var datos = (D.rivalidades || []).filter(function (r) {
     return nLimpio(r.jugador1).toLowerCase().indexOf('magaly') === -1 &&
            nLimpio(r.jugador2).toLowerCase().indexOf('magaly') === -1 &&
-           nLimpio(r.jugador1).toLowerCase().indexOf('bernald') === -1 &&
-           nLimpio(r.jugador2).toLowerCase().indexOf('bernald') === -1 &&
+           nLimpio(r.jugador1).toLowerCase().indexOf('bernal') === -1 &&
+           nLimpio(r.jugador2).toLowerCase().indexOf('bernal') === -1 &&
            (r.totalenfrentamientos || 0) > 15;
   });
 
