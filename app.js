@@ -629,10 +629,10 @@ function htmlPentagono(eq, coords, nombreCap,anioPartido) {
     if (!j) continue; // Si hay menos de 5 jugadores, deja el espacio vacío
     
     var esCapitan = nLimpio(j.jugador_nombre) === nLimpio(nombreCap);
-    var clases = 'pentagono-nodo' + (esCapitan ? ' es-capitan' : '') + (j.mvp ? ' es-mvp' : '');
+    var clases = 'pentagono-nodo jug-clickable' + (esCapitan ? ' es-capitan' : '') + (j.mvp ? ' es-mvp' : '');
      var cal = calJHistorica(j.jugador_nombre, anioPartido);
     
-    h += '<div class="' + clases + '" style="left:' + c.left + ';top:' + c.top + '">' +
+    h += '<div class="' + clases + '" data-jugador="' + escAttr(j.jugador_nombre) + '" style="left:' + c.left + ';top:' + c.top + '">' +
       '<div class="relative">' +
         getFotoHTML(j.jugador_nombre, 'alineaciones') +
         (j.mvp ? '<div class="cancha-mvp-tag"><i class="fa-solid fa-star" style="font-size: .8rem; color: #e8b830;"></i></div>' : '') +
@@ -856,8 +856,8 @@ function renderRivalidadesHistoricas() {
   var datos = (D.rivalidades || []).filter(function (r) {
     return nLimpio(r.jugador1).toLowerCase().indexOf('magaly') === -1 &&
            nLimpio(r.jugador2).toLowerCase().indexOf('magaly') === -1 &&
-           nLimpio(r.jugador1).toLowerCase().indexOf('bernal') === -1 &&
-           nLimpio(r.jugador2).toLowerCase().indexOf('bernal') === -1 &&
+           nLimpio(r.jugador1).toLowerCase().indexOf('bernald') === -1 &&
+           nLimpio(r.jugador2).toLowerCase().indexOf('bernald') === -1 &&
            (r.totalenfrentamientos || 0) > 15;
   });
 
@@ -1629,7 +1629,7 @@ function renderDreamTeam() {
     var tamBase = TAM_FOTOS.dream_team || 2.5;
     var tamFinal = tamBase * (pos.scale || 1);
 
-    h += '<div class="dream-nodo" style="left:' + pos.left + ';top:' + pos.top + '">' +
+    h += '<div class="dream-nodo jug-clickable" data-jugador="' + escAttr(p.jugador_nombre) + '" style="left:' + pos.left + ';top:' + pos.top + '">' +
       getFotoHTML(p.jugador_nombre, tamFinal) + 
       '<span class="dream-nombre">' + nLimpio(p.jugador_nombre) + '</span>' +
     '</div>';
@@ -1744,6 +1744,20 @@ function init() {
     setTimeout(function () { ld.style.display = 'none'; }, 400);
 
     document.getElementById('busq-rank').addEventListener('input', busqDebounced);
+
+
+    // --- NUEVO: Eventos para abrir modal desde Alineaciones y Dream Team ---
+    document.getElementById('tb-part').addEventListener('click', function (e) {
+      var cell = e.target.closest('[data-jugador]');
+      if (cell) { abrirModal(cell.getAttribute('data-jugador')); }
+    });
+
+    document.getElementById('gr-dt').addEventListener('click', function (e) {
+      var cell = e.target.closest('[data-jugador]');
+      if (cell) { abrirModal(cell.getAttribute('data-jugador')); }
+    });
+    // ---------------------------------------------------------------------
+
 
     document.getElementById('btn-act').onclick = function () {
       var btn = this;
