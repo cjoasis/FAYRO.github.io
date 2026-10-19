@@ -689,17 +689,7 @@ function renderPartidos() {
     var mvp1 = alis.find(function (a) { return a.mvp && a.numero_equipo === 1; });
     var mvp2 = alis.find(function (a) { return a.mvp && a.numero_equipo === 2; });
     var rc = m.resultado === 'ganador_equipo1' ? 'bg1' : m.resultado === 'ganador_equipo2' ? 'bg2' : 'bge';
-    
-    // --- NUEVO: Mostrar nombre del capitán que ganó en lugar de "EQ1/EQ2" ---
-    var cap1Partido = m.capitan1_nombre || c1n || '';
-    var cap2Partido = m.capitan2_nombre || c2n || '';
-    // Recortamos el nombre a máximo 10 caracteres para que no rompa el diseño del badge
-    var nom1 = cap1Partido ? nLimpio(cap1Partido).substring(0, 10) : 'EQ1';
-    var nom2 = cap2Partido ? nLimpio(cap2Partido).substring(0, 10) : 'EQ2';
-    
-    var rt = m.resultado === 'ganador_equipo1' ? 'GANÓ ' + nom1 : m.resultado === 'ganador_equipo2' ? 'GANÓ ' + nom2 : 'EMPATE';
-    // ------------------------------------------------------------------------
-    
+    var rt = m.resultado === 'ganador_equipo1' ? 'VICTORIA EQ1' : m.resultado === 'ganador_equipo2' ? 'VICTORIA EQ2' : 'EMPATE';
     var anio = anioP(m);
     var tA = alis.length > 0;
 
