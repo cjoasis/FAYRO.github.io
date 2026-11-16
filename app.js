@@ -3,7 +3,68 @@
 var URL_SB = 'https://oozauduzzwvxtxehxixc.supabase.co';
 var KEY_SB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9vemF1ZHV6end2eHR4ZWh4aXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc1OTU3MDgsImV4cCI6MjEwMzE3MTcwOH0.AeWtHC5bMFooI4EPdL7VF6QUZXRp5tTMNpFuAqMkqvY';
 var sb = window.supabase.createClient(URL_SB, KEY_SB);
+/* ── Autenticación con Google ── */
+var currentUser = null;
 
+async function initAuth() {
+  // Verificar si ya hay una sesión activa
+  const { data: { session } } = await sb.auth.getSession();
+  currentUser = session ? session.user : null;
+  updateAuthUI();
+
+  // Escuchar cambios de estado de autenticación
+  sb.auth.onAuthStateChange(function(event, session) {
+    currentUser = session ? session.user : null;
+    updateAuthUI();
+    
+    if (event === 'SIGNED_IN') {
+      toast('Sesión iniciada');
+    } else if (event === 'SIGNED_OUT') {
+      toast('Sesión cerrada');
+    }
+  });
+}
+
+function loginWithGoogle() {
+  sb.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: window.location.origin
+    }
+  });
+}
+
+function logout() {
+  sb.auth.signOut();
+}
+
+function updateAuthUI() {
+  var authSection = document.getElementById('auth-section');
+  if (!authSection) return;
+
+  if (currentUser) {
+    // Usuario logueado: mostrar foto, nombre y botón de cerrar sesión
+    var name = (currentUser.user_metadata && currentUser.user_metadata.full_name) ? currentUser.user_metadata.full_name : 'Usuario';
+    var avatar = (currentUser.user_metadata && currentUser.user_metadata.avatar_url) ? currentUser.user_metadata.avatar_url : '';
+    var email = currentUser.email || '';
+
+    authSection.innerHTML = 
+      '<div class="flex items-center gap-1.5">' +
+        '<img src="' + avatar + '" class="w-7 h-7 rounded-full border border-brd" alt="" referrerpolicy="no-referrer">' +
+        '<span class="text-white text-[.6rem] font-display hidden md:block truncate max-w-[80px]" title="' + email + '">' + name.split(' ')[0] + '</span>' +
+        '<button onclick="logout()" class="w-7 h-7 rounded-lg border border-brd flex items-center justify-center text-muted hover:text-red-400 hover:border-red-400/30 transition-colors" style="background:#141a14" title="Cerrar sesión">' +
+          '<i class="fa-solid fa-right-from-bracket text-[.55rem]"></i>' +
+        '</button>' +
+      '</div>';
+  } else {
+    // Usuario no logueado: mostrar botón de Google
+    authSection.innerHTML = 
+      '<button onclick="loginWithGoogle()" class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-brd text-white hover:border-accent/30 transition-colors text-[.6rem] font-display" style="background:#141a14" title="Iniciar sesión con Google">' +
+        '<i class="fa-brands fa-google text-[.6rem]"></i>' +
+        '<span class="hidden sm:block">Ingresar</span>' +
+      '</button>';
+  }
+}
 /* ── Estado global ── */
 var D = { temporadas: [], partidos: [], jugadores: [], historial: [], copas: [], sinergias: [], sinergias_temp: [], rivalidades: [] };
 var tAct = null, EG = {}, G = {};
@@ -1737,6 +1798,7 @@ function init() {
     renderColToggles();
     renderTodo();
     initReveal();
+    initAuth(); // <-- AGREGAR ESTA LÍNEA
 
     var ld = document.getElementById('cargador');
     ld.style.transition = 'opacity .4s ease';
