@@ -11,7 +11,7 @@ async function initAuth() {
   const { data: { session } } = await sb.auth.getSession();
   currentUser = session ? session.user : null;
   updateAuthUI();
-
+}
   // Escuchar cambios de estado de autenticación
   sb.auth.onAuthStateChange(function(event, session) {
     currentUser = session ? session.user : null;
