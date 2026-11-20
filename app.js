@@ -19,12 +19,12 @@ async function initAuth() {
     
     if (event === 'SIGNED_IN') {
       toast('Sesión iniciada');
+      detectarJugadorLogueado(); // <-- Detectar qué jugador es
     } else if (event === 'SIGNED_OUT') {
+      jugadorLogueado = null; // <-- Limpiar al cerrar sesión
       toast('Sesión cerrada');
     }
   });
-}
-
 function loginWithGoogle() {
   sb.auth.signInWithOAuth({
     provider: 'google',
@@ -63,6 +63,32 @@ function updateAuthUI() {
         '<i class="fa-brands fa-google text-[.6rem]"></i>' +
         '<span class="hidden sm:block">Ingresar</span>' +
       '</button>';
+  }
+}
+
+/* ── Detectar qué jugador está logueado ── */
+var jugadorLogueado = null;
+
+async function detectarJugadorLogueado() {
+  if (!currentUser || !currentUser.email) {
+    jugadorLogueado = null;
+    return;
+  }
+
+  // Buscar en la base de datos si hay un jugador con este email
+  var res = await sb.from('jugadores')
+    .select('nombre, email')
+    .eq('email', currentUser.email)
+    .single();
+
+  if (res.data) {
+    jugadorLogueado = res.data.nombre;
+    console.log('Jugador logueado:', jugadorLogueado);
+    toast('Bienvenido ' + jugadorLogueado);
+  } else {
+    jugadorLogueado = null;
+    // El correo no está asignado a ningún jugador
+    console.log('Correo no asignado a ningún jugador');
   }
 }
 /* ── Estado global ── */
